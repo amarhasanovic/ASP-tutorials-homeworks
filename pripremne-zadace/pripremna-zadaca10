@@ -1,0 +1,248 @@
+#include <iostream>
+#include <string>
+#include <vector>
+
+using namespace std;
+
+template <typename TipOznake> class Cvor;
+template <typename TipOznake> class Grana;
+template <typename TipOznake> class GranaIterator;
+
+template <typename TipOznake> class UsmjereniGraf {
+public:
+  UsmjereniGraf() = default;
+  virtual ~UsmjereniGraf(){};
+  virtual int dajBrojCvorova() = 0;
+  virtual void postaviBrojCvorova(int brojCvorova) = 0;
+  virtual void dodajGranu(int polazni, int dolazni, float tezina) = 0;
+  virtual void obrisiGranu(int polazni, int dolazni) = 0;
+  virtual void postaviTezinuGrane(int polazni, int dolazni, float tezina) = 0;
+  virtual float dajTezinuGrane(int polazni, int dolazni) = 0;
+  virtual bool postojiGrana(int polazni, int dolazni) = 0;
+  virtual void postaviOznakuCvora(int brojCvora, TipOznake oznaka) = 0;
+  virtual TipOznake dajOznakuCvora(int brojCvora) = 0;
+  virtual void postaviOznakuGrane(int polazni, int dolazni,
+                                  TipOznake oznaka) = 0;
+  virtual TipOznake dajOznakuGrane(int polazni, int dolazni) = 0;
+  virtual Grana<TipOznake> dajGranu(int polazni, int dolazni) = 0;
+  virtual Cvor<TipOznake> dajCvor(int brojCvora) = 0;
+  virtual GranaIterator<TipOznake> dajGranePocetak() = 0;
+  virtual GranaIterator<TipOznake> dajGraneKraj() = 0;
+};
+
+template <typename TipOznake> class Cvor {
+  TipOznake oznaka;
+  UsmjereniGraf<TipOznake> *graf;
+  int redniBrojCvora;
+
+public:
+  Cvor(UsmjereniGraf<TipOznake> *graf, int redniBrojCvora)
+      : oznaka(TipOznake()), graf(graf), redniBrojCvora(redniBrojCvora) {}
+  Cvor() : oznaka(TipOznake()), graf(nullptr), redniBrojCvora(0) {}
+  TipOznake dajOznaku() { return oznaka; }
+  void postaviOznaku(TipOznake o) {
+    this->graf->postaviOznakuCvora(redniBrojCvora, o);
+  }
+  void postaviOznaku2(TipOznake o) { this->oznaka = o; }
+  int dajRedniBroj() { return redniBrojCvora; }
+
+  friend class Grana<TipOznake>;
+};
+
+template <typename TipOznake> class Grana {
+  float tezina;
+  TipOznake oznaka;
+  Cvor<TipOznake> *polazni, *dolazni;
+
+public:
+  Grana()
+      : tezina(0), oznaka(TipOznake()), polazni(nullptr), dolazni(nullptr) {}
+  Grana(float tezina, TipOznake oznaka, Cvor<TipOznake> *polazni,
+        Cvor<TipOznake> *dolazni)
+      : tezina(tezina), oznaka(oznaka), polazni(polazni), dolazni(dolazni) {}
+  float dajTezinu() { return tezina; }
+  void postaviTezinu(float tezina) {
+    polazni->graf->postaviTezinuGrane(polazni->dajRedniBroj(),
+                                      dolazni->dajRedniBroj(), tezina);
+  }
+  void postaviTezinu2(float tezina) { this->tezina = tezina; }
+  TipOznake dajOznaku() { return oznaka; }
+  void postaviOznaku(TipOznake o) {
+    polazni->graf->postaviOznakuGrane(polazni->dajRedniBroj(),
+                                      dolazni->dajRedniBroj(), o);
+  }
+  void postaviOznaku2(TipOznake o) { this->oznaka = o; }
+  Cvor<TipOznake> dajPolazniCvor() { return *polazni; }
+  Cvor<TipOznake> dajDolazniCvor() { return *dolazni; }
+};
+
+template <typename TipOznake>
+class MatricaGraf : public UsmjereniGraf<TipOznake> {
+  vector<vector<Grana<TipOznake> *>> matrica;
+  vector<Cvor<TipOznake> *> cvorovi;
+  int brPosjecenih;
+
+  bool validacijaPodataka(int polazni, int dolazni) {
+    return !(cvorovi.size() < polazni || cvorovi.size() < dolazni ||
+             matrica[polazni][dolazni] == nullptr);
+  }
+
+public:
+  MatricaGraf(int brojCvorova) {
+    matrica.resize(brojCvorova);
+    for (int i = 0; i < brojCvorova; i++)
+      matrica[i].resize(brojCvorova, nullptr);
+    cvorovi.resize(brojCvorova, nullptr);
+    for (int i = 0; i < brojCvorova; i++)
+      cvorovi[i] = new Cvor<TipOznake>(this, i);
+  }
+  ~MatricaGraf() {
+    for (int i = 0; i < matrica.size(); i++)
+      for (int j = 0; j < matrica.size(); j++)
+        delete matrica[i][j];
+    for (int i = 0; i < cvorovi.size(); i++)
+      delete cvorovi[i];
+  }
+  int dajBrojCvorova() { return cvorovi.size(); }
+  void postaviBrojCvorova(int brojCvorova) {
+    if (brojCvorova < cvorovi.size())
+      throw("Metoda postaviBrojCvorova(): Ne mozemo smanjiti broj cvorova!\n");
+    matrica.resize(brojCvorova);
+    for (int i = 0; i < brojCvorova; i++)
+      matrica[i].resize(brojCvorova, nullptr);
+    int temp = cvorovi.size();
+    for (int i = temp; i < brojCvorova; i++)
+      cvorovi[i] = new Cvor<TipOznake>(this, i);
+  }
+  void dodajGranu(int polazni, int dolazni, float tezina) {
+    if (matrica[polazni][dolazni] != nullptr || cvorovi.size() < polazni ||
+        cvorovi.size() < dolazni)
+      throw("Metoda dodajGranu(): Neispravni podaci!");
+    matrica[polazni][dolazni] = new Grana<TipOznake>(
+        tezina, TipOznake(), cvorovi[polazni], cvorovi[dolazni]);
+  }
+  void obrisiGranu(int polazni, int dolazni) {
+    if (!validacijaPodataka(polazni, dolazni))
+      throw("Metoda obrisiGranu(): Grana ne postoji!");
+    delete matrica[polazni][dolazni];
+    matrica[polazni][dolazni] = nullptr;
+  }
+  void postaviTezinuGrane(int polazni, int dolazni, float tezina) {
+    if (!validacijaPodataka(polazni, dolazni))
+      throw("Metoda postaviTezinuGrane(): Neispravni podaci!");
+    matrica[polazni][dolazni]->postaviTezinu2(tezina);
+  }
+  float dajTezinuGrane(int polazni, int dolazni) {
+    if (!validacijaPodataka(polazni, dolazni))
+      throw("Metoda dajTezinuGrane(): Grana ne postoji!\n");
+    return matrica[polazni][dolazni]->dajTezinu();
+  }
+  bool postojiGrana(int polazni, int dolazni) {
+    return validacijaPodataka(polazni, dolazni);
+  }
+  void postaviOznakuCvora(int brojCvora, TipOznake oznaka) {
+    if (cvorovi.size() < brojCvora || cvorovi[brojCvora] == nullptr)
+      throw("Metoda postaviOznakuCvora(): Cvor ne postoji!\n");
+    cvorovi[brojCvora]->postaviOznaku2(oznaka);
+  }
+  TipOznake dajOznakuCvora(int brojCvora) {
+    if (cvorovi.size() < brojCvora || cvorovi[brojCvora] == nullptr)
+      throw("Metoda dajOznakuCvora(): Cvor ne postoji!\n");
+    return cvorovi[brojCvora]->dajOznaku();
+  }
+  void postaviOznakuGrane(int polazni, int dolazni, TipOznake oznaka) {
+    if (!validacijaPodataka(polazni, dolazni))
+      throw("Metoda postaviOznakuGrane(): Neispravni podaci!\n");
+    matrica[polazni][dolazni]->postaviOznaku2(oznaka);
+  }
+  TipOznake dajOznakuGrane(int polazni, int dolazni) {
+    if (!validacijaPodataka(polazni, dolazni))
+      throw("Metoda dajOznakuGrane(): Neispravni podaci!\n");
+    return matrica[polazni][dolazni]->dajOznaku();
+  }
+  Grana<TipOznake> dajGranu(int polazni, int dolazni) {
+    if (!validacijaPodataka(polazni, dolazni))
+      throw("Metoda dajGranu(): Neispravni podaci!\n");
+    return *matrica[polazni][dolazni];
+  }
+  Cvor<TipOznake> dajCvor(int brojCvora) {
+    if (cvorovi.size() < brojCvora || cvorovi[brojCvora] == nullptr)
+      throw("Metoda dajCvor(): Cvor ne postoji!\n");
+    return *cvorovi[brojCvora];
+  }
+  GranaIterator<TipOznake> dajGranePocetak() {
+    for (int i = 0; i < matrica.size(); i++) {
+      for (int j = 0; j < matrica.size(); j++) {
+        if (matrica[i][j] != nullptr)
+          return GranaIterator<TipOznake>(this, i, j);
+      }
+    }
+    return GranaIterator<TipOznake>(this, 0, 0);
+  }
+  GranaIterator<TipOznake> dajGraneKraj() {
+    for (int i = matrica.size() - 1; i > 0; i--) {
+      for (int j = matrica.size() - 1; j > 0; j--) {
+        if (matrica[i][j] != nullptr) {
+          if (j < matrica.size() - 1) {
+            return GranaIterator<TipOznake>(this, i, j + 1);
+          } else {
+            return GranaIterator<TipOznake>(this, i + 1, 0);
+          }
+        }
+      }
+    }
+    return GranaIterator<TipOznake>(this, matrica.size() - 1,
+                                    matrica.size() - 1);
+  }
+};
+
+template <typename TipOznake> class GranaIterator {
+  MatricaGraf<TipOznake> *matrica;
+  int polazni, dolazni;
+
+public:
+  GranaIterator(MatricaGraf<TipOznake> *matrica, int polazni, int dolazni)
+      : matrica(matrica), polazni(polazni), dolazni(dolazni) {}
+  Grana<TipOznake> operator*() { return matrica->dajGranu(polazni, dolazni); }
+  bool operator==(const GranaIterator &iter) const {
+    return (this->matrica == iter.matrica && this->polazni == iter.polazni &&
+            this->dolazni == iter.dolazni);
+  }
+  bool operator!=(const GranaIterator &iter) const {
+    return !(this->matrica == iter.matrica && this->polazni == iter.polazni &&
+             this->dolazni == iter.dolazni);
+  }
+  GranaIterator &operator++() {
+    if (polazni == matrica->dajBrojCvorova() &&
+        dolazni == matrica->dajBrojCvorova())
+      throw("Dosli smo do kraja matrice!\n");
+    GranaIterator<TipOznake> temp = matrica->dajGraneKraj();
+    int polazniKraj(temp.polazni), dolazniKraj(temp.dolazni);
+    int velicina = matrica->dajBrojCvorova();
+    for (int i = 0; i < velicina; i++) {
+      for (int j = 0; j < velicina; j++) {
+        if (i == polazniKraj && j == dolazniKraj) {
+          polazni = i;
+          dolazni = j;
+          return *this;
+        } else if (matrica->postojiGrana(i, j) &&
+                   (i > polazni || (i == polazni && j > dolazni))) {
+          polazni = i;
+          dolazni = j;
+          return *this;
+        }
+      }
+    }
+  }
+  GranaIterator operator++(int) {
+    GranaIterator<TipOznake> temp(matrica, polazni, dolazni);
+    try {
+      (*this)++;
+    } catch (...) {
+      throw;
+    }
+    return temp;
+  }
+};
+
+int main() { return 0; }
