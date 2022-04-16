@@ -1,0 +1,138 @@
+#include <iostream>
+#include <vector>
+using namespace std;
+
+template <typename TipKljuca, typename TipVrijednosti> class Mapa {
+public:
+  Mapa() {}
+  virtual ~Mapa() {}
+  virtual int brojElemenata() const = 0;
+  virtual void obrisi() = 0;
+  virtual void obrisi(const TipKljuca &kljuc) = 0;
+  virtual TipVrijednosti &operator[](TipKljuca kljuc) = 0;
+  virtual TipVrijednosti operator[](TipKljuca kljuc) const = 0;
+};
+
+template <typename TipKljuca, typename TipVrijednosti>
+class NizMapa : public Mapa<TipKljuca, TipVrijednosti> {
+  int brElemenata;
+  int velicina;
+  pair<TipKljuca, TipVrijednosti> **niz;
+
+  int indeksPara(TipKljuca kljuc) const {
+    for (int i = 0; i < brElemenata; i++) {
+      if (niz[i] != nullptr && niz[i]->first == kljuc) {
+        return i;
+      }
+    }
+    return -1;
+  }
+  void oslobodiMemoriju() {
+    for (int i = 0; i < velicina; i++) {
+      delete niz[i];
+      niz[i] = nullptr;
+    }
+    delete[] niz;
+    niz = nullptr;
+  }
+  void kopiranje() {
+    pair<TipKljuca, TipVrijednosti> **noviNiz =
+        new pair<TipKljuca, TipVrijednosti> *[velicina * 2] {};
+    for (int i = 0; i < brElemenata; i++) {
+      noviNiz[i] = new pair<TipKljuca, TipVrijednosti>(*niz[i]);
+    }
+    oslobodiMemoriju();
+    niz = noviNiz;
+    velicina *= 2;
+  }
+
+public:
+  NizMapa()
+      : niz(new pair<TipKljuca, TipVrijednosti> *[velicina] {}), brElemenata(0),
+        velicina(100) {}
+  NizMapa(const NizMapa<TipKljuca, TipVrijednosti> &l)
+      : velicina(l.velicina), brElemenata(l.brElemenata),
+        niz(new pair<TipKljuca, TipVrijednosti> *[l.velicina] {}) {
+    for (int i = 0; i < l.brElemenata; i++) {
+      niz[i] = new pair<TipKljuca, TipVrijednosti>(*l.niz[i]);
+    }
+  }
+  NizMapa(NizMapa<TipKljuca, TipVrijednosti> &&l)
+      : velicina(l.velicina), brElemenata(l.brElemenata), niz(l.niz) {
+    l.niz = nullptr;
+  }
+  NizMapa &operator=(const NizMapa &m);
+  NizMapa &operator=(NizMapa &&m);
+  ~NizMapa() override { oslobodiMemoriju(); }
+  int brojElemenata() const override { return brElemenata; }
+  void obrisi() override {
+    oslobodiMemoriju();
+    brElemenata = 0;
+    velicina = 100;
+    niz = new pair<TipKljuca, TipVrijednosti> *[velicina] {};
+  }
+  void obrisi(const TipKljuca &kljuc) override {
+    int indeks = indeksPara(kljuc);
+    if (indeks != -1) {
+      delete niz[indeks];
+      niz[indeks] = nullptr;
+      brElemenata--;
+    }
+  }
+  TipVrijednosti &operator[](TipKljuca kljuc) override {
+    int indeks = indeksPara(kljuc);
+    if (indeks == -1) {
+      if (brElemenata >= velicina) {
+        kopiranje();
+      }
+      int i;
+      for (i = 0; i < brElemenata; i++)
+        if (i != brElemenata && niz[i] == nullptr) {
+          break;
+        }
+      niz[i] = new pair<TipKljuca, TipVrijednosti>(
+          make_pair(kljuc, TipVrijednosti()));
+      indeks = i;
+      brElemenata++;
+    }
+    return niz[indeks]->second;
+  }
+  TipVrijednosti operator[](TipKljuca kljuc) const override {
+    int indeks = indeksPara(kljuc);
+    if (indeks == -1)
+      return TipVrijednosti();
+    return niz[indeks]->second;
+  }
+};
+
+template <typename TipKljuca, typename TipVrijednosti>
+NizMapa<TipKljuca, TipVrijednosti> &
+NizMapa<TipKljuca, TipVrijednosti>::operator=(
+    const NizMapa<TipKljuca, TipVrijednosti> &m) {
+  pair<TipKljuca, TipVrijednosti> **temp =
+      new pair<TipKljuca, TipVrijednosti> *[m.velicina] {};
+  for (int i = 0; i < m.brElemenata; i++) {
+    temp[i] = new pair<TipKljuca, TipVrijednosti>(*m.niz[i]);
+  }
+  oslobodiMemoriju();
+  velicina = m.velicina;
+  brElemenata = m.brElemenata;
+  niz = temp;
+  return *this;
+}
+
+template <typename TipKljuca, typename TipVrijednosti>
+NizMapa<TipKljuca, TipVrijednosti> &
+NizMapa<TipKljuca, TipVrijednosti>::operator=(
+    NizMapa<TipKljuca, TipVrijednosti> &&m) {
+  if (&m != this) {
+    oslobodiMemoriju();
+    niz = m.niz;
+    velicina = m.velicina;
+    brElemenata = m.brElemenata;
+    m.niz = nullptr;
+  }
+  return *this;
+}
+
+int main() { return 0; }
