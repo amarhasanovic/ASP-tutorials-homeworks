@@ -1,0 +1,320 @@
+#include <iostream>
+#include <stdexcept>
+#include <vector>
+using namespace std;
+
+template <typename TipKljuca, typename TipVrijednosti> class Mapa {
+public:
+  Mapa() {}
+  virtual ~Mapa() {}
+  virtual int brojElemenata() const = 0;
+  virtual void obrisi() = 0;
+  virtual void obrisi(const TipKljuca &kljuc) = 0;
+  virtual TipVrijednosti &operator[](TipKljuca kljuc) = 0;
+  virtual TipVrijednosti operator[](TipKljuca kljuc) const = 0;
+};
+
+template <typename TipKljuca, typename TipVrijednosti>
+class BinStabloMapa : public Mapa<TipKljuca, TipVrijednosti> {
+  struct Cvor {
+    TipKljuca kljuc;
+    TipVrijednosti vrijednost;
+    Cvor *lijevo, *desno, *roditelj;
+    Cvor() { lijevo = desno = roditelj = nullptr; }
+    Cvor(const TipKljuca &kljuc, const TipVrijednosti &vrijednost,
+         Cvor *l = nullptr, Cvor *d = nullptr, Cvor *r = nullptr) {
+      this->kljuc = kljuc;
+      this->vrijednost = vrijednost;
+      lijevo = l;
+      desno = d;
+      roditelj = r;
+    }
+  };
+  Cvor *korijen;
+  int brojEl;
+  void oslobodiMemoriju(Cvor *cv) {
+    if (cv == nullptr)
+      return;
+    oslobodiMemoriju(cv->lijevo);
+    oslobodiMemoriju(cv->desno);
+    delete cv;
+  }
+
+public:
+  BinStabloMapa() {
+    korijen = nullptr;
+    brojEl = 0;
+  }
+  BinStabloMapa(const BinStabloMapa &m) : korijen(nullptr), brojEl(0) {
+    kopirajStablo(korijen, m.korijen, nullptr);
+  }
+  ~BinStabloMapa() { oslobodiMemoriju(korijen); }
+  BinStabloMapa &operator=(const BinStabloMapa &m) {
+    if (this == &m)
+      return *this;
+    oslobodiMemoriju(korijen);
+    korijen = nullptr;
+    brojEl = 0;
+    kopirajStablo(korijen, m.korijen, nullptr);
+    return *this;
+  }
+  int brojElemenata() const override { return brojEl; }
+  TipVrijednosti operator[](const TipKljuca kljuc) const override {
+    auto rezultat = trazi(this->korijen, kljuc);
+    if (rezultat != nullptr)
+      return rezultat->vrijednost;
+    TipVrijednosti pom{};
+    return pom;
+  }
+  TipVrijednosti &operator[](const TipKljuca kljuc) override {
+    Cvor *cv = trazi(korijen, kljuc);
+    if (cv != nullptr)
+      return cv->vrijednost;
+    cv = dodaj(korijen, kljuc, nullptr);
+    return cv->vrijednost;
+  }
+  void obrisi() override {
+    oslobodiMemoriju(korijen);
+    korijen = nullptr;
+    brojEl = 0;
+  }
+  void obrisi(const TipKljuca &el) override {
+    Cvor *p = korijen, *q = nullptr, *tmp = nullptr, *rp = nullptr,
+         *pp = nullptr;
+    while (p != nullptr && p->kljuc != el) {
+      q = p;
+      if (el < p->kljuc)
+        p = p->lijevo;
+      else
+        p = p->desno;
+    }
+    if (p == nullptr)
+      throw std::logic_error("Element za brisanje nije pronaden!");
+    if (p->lijevo == nullptr)
+      rp = p->desno;
+    else if (p->desno == nullptr)
+      rp = p->lijevo;
+    else {
+      pp = p;
+      rp = p->lijevo;
+      tmp = rp->desno;
+      while (tmp != nullptr) {
+        pp = rp;
+        rp = tmp;
+        tmp = rp->desno;
+      }
+      if (pp != p) {
+        pp->desno = rp->lijevo;
+        rp->lijevo = p->lijevo;
+        pp->roditelj = rp;
+        rp->roditelj = q;
+        if (pp->desno)
+          pp->desno->roditelj = pp;
+      }
+      rp->desno = p->desno;
+    }
+    if (q == nullptr)
+      korijen = rp;
+    else if (p == q->lijevo)
+      q->lijevo = rp;
+    else
+      q->desno = rp;
+    delete p;
+    brojEl--;
+  }
+  Cvor *trazi(Cvor *cv, const TipKljuca &el) const {
+    if (cv == nullptr || cv->kljuc == el)
+      return cv;
+    else if (el < cv->kljuc)
+      return trazi(cv->lijevo, el);
+    else
+      return trazi(cv->desno, el);
+  }
+  Cvor *dodaj(Cvor *&cv, const TipKljuca &kljuc, Cvor *r) {
+    if (cv == nullptr) {
+      brojEl++;
+      cv = new Cvor(kljuc, TipVrijednosti(), nullptr, nullptr, r);
+      return cv;
+    } else if (cv->kljuc > kljuc)
+      return dodaj(cv->lijevo, kljuc, cv);
+    else
+      return dodaj(cv->desno, kljuc, cv);
+  }
+  void kopirajStablo(Cvor *&cv1, Cvor *cv2, Cvor *r) {
+    if (cv2 != nullptr) {
+      cv1 = new Cvor(cv2->kljuc, cv2->vrijednost, nullptr, nullptr, r);
+      kopirajStablo(cv1->lijevo, cv2->lijevo, cv1);
+      kopirajStablo(cv1->desno, cv2->desno, cv1);
+      brojEl++;
+    }
+  }
+};
+
+// NizMapa
+template <typename TipKljuca, typename TipVrijednosti>
+class NizMapa : public Mapa<TipKljuca, TipVrijednosti> {
+  int brElemenata;
+  int velicina;
+  pair<TipKljuca, TipVrijednosti> **niz;
+
+  int indeksPara(TipKljuca kljuc) const {
+    for (int i = 0; i < brElemenata; i++) {
+      if (niz[i] != nullptr && niz[i]->first == kljuc) {
+        return i;
+      }
+    }
+    return -1;
+  }
+  void oslobodiMemoriju() {
+    for (int i = 0; i < velicina; i++) {
+      delete niz[i];
+      niz[i] = nullptr;
+    }
+    delete[] niz;
+    niz = nullptr;
+  }
+  void kopiranje() {
+    pair<TipKljuca, TipVrijednosti> **noviNiz =
+        new pair<TipKljuca, TipVrijednosti> *[velicina * 2] {};
+    for (int i = 0; i < brElemenata; i++) {
+      noviNiz[i] = new pair<TipKljuca, TipVrijednosti>(*niz[i]);
+    }
+    oslobodiMemoriju();
+    niz = noviNiz;
+    velicina *= 2;
+  }
+
+public:
+  NizMapa()
+      : niz(new pair<TipKljuca, TipVrijednosti> *[velicina] {}), brElemenata(0),
+        velicina(100) {}
+  NizMapa(const NizMapa<TipKljuca, TipVrijednosti> &l)
+      : velicina(l.velicina), brElemenata(l.brElemenata),
+        niz(new pair<TipKljuca, TipVrijednosti> *[l.velicina] {}) {
+    for (int i = 0; i < l.brElemenata; i++) {
+      niz[i] = new pair<TipKljuca, TipVrijednosti>(*l.niz[i]);
+    }
+  }
+  NizMapa(NizMapa<TipKljuca, TipVrijednosti> &&l)
+      : velicina(l.velicina), brElemenata(l.brElemenata), niz(l.niz) {
+    l.niz = nullptr;
+  }
+  NizMapa &operator=(const NizMapa &m);
+  NizMapa &operator=(NizMapa &&m);
+  ~NizMapa() override { oslobodiMemoriju(); }
+  int brojElemenata() const override { return brElemenata; }
+  void obrisi() override {
+    oslobodiMemoriju();
+    brElemenata = 0;
+    velicina = 100;
+    niz = new pair<TipKljuca, TipVrijednosti> *[velicina] {};
+  }
+  void obrisi(const TipKljuca &kljuc) override {
+    int indeks = indeksPara(kljuc);
+    if (indeks != -1) {
+      delete niz[indeks];
+      niz[indeks] = nullptr;
+      brElemenata--;
+    }
+  }
+  TipVrijednosti &operator[](TipKljuca kljuc) override {
+    int indeks = indeksPara(kljuc);
+    if (indeks == -1) {
+      if (brElemenata >= velicina) {
+        kopiranje();
+      }
+      int i;
+      for (i = 0; i < brElemenata; i++)
+        if (i != brElemenata && niz[i] == nullptr) {
+          break;
+        }
+      niz[i] = new pair<TipKljuca, TipVrijednosti>(
+          make_pair(kljuc, TipVrijednosti()));
+      indeks = i;
+      brElemenata++;
+    }
+    return niz[indeks]->second;
+  }
+  TipVrijednosti operator[](TipKljuca kljuc) const override {
+    int indeks = indeksPara(kljuc);
+    if (indeks == -1)
+      return TipVrijednosti();
+    return niz[indeks]->second;
+  }
+};
+
+template <typename TipKljuca, typename TipVrijednosti>
+NizMapa<TipKljuca, TipVrijednosti> &
+NizMapa<TipKljuca, TipVrijednosti>::operator=(
+    const NizMapa<TipKljuca, TipVrijednosti> &m) {
+  pair<TipKljuca, TipVrijednosti> **temp =
+      new pair<TipKljuca, TipVrijednosti> *[m.velicina] {};
+  for (int i = 0; i < m.brElemenata; i++) {
+    temp[i] = new pair<TipKljuca, TipVrijednosti>(*m.niz[i]);
+  }
+  oslobodiMemoriju();
+  velicina = m.velicina;
+  brElemenata = m.brElemenata;
+  niz = temp;
+  return *this;
+}
+template <typename TipKljuca, typename TipVrijednosti>
+NizMapa<TipKljuca, TipVrijednosti> &
+NizMapa<TipKljuca, TipVrijednosti>::operator=(
+    NizMapa<TipKljuca, TipVrijednosti> &&m) {
+  if (&m != this) {
+    oslobodiMemoriju();
+    niz = m.niz;
+    velicina = m.velicina;
+    brElemenata = m.brElemenata;
+    m.niz = nullptr;
+  }
+  return *this;
+}
+
+int main() {
+  BinStabloMapa<int, int> binStabloMapa;
+  NizMapa<int, int> nizMapa;
+  int velicina = 20000;
+  int n = 0;
+
+  // punimo random podatke
+  for (int i = 0; i < velicina; i++) {
+    binStabloMapa[n++] = rand() % velicina;
+  }
+  n = 0;
+  for (int i = 0; i < velicina; i++)
+    nizMapa[n++] = rand() % velicina;
+  // za mali broj elemenata u mapi, niz mapa se cini efikasnija dok sa porastom
+  // broja elemenata ubacivanje u niz mapu ce sa vremenom biti sporije od
+  // ubacivanja u binarno stablo
+
+  clock_t vrijeme1 = clock();
+  binStabloMapa[500] = 10;
+  clock_t vrijeme2 = clock();
+  clock_t vrijeme3 = clock();
+  nizMapa[500] = 10;
+  clock_t vrijeme4 = clock();
+  int time = 10000;
+  int vrijemeBinStablaMape = (vrijeme2 - vrijeme1) / (CLOCKS_PER_SEC / time);
+  cout << "Vrijeme pristupa (binStabloMapa): " << vrijemeBinStablaMape
+       << "ms.\n";
+  int vrijemeNizMape = (vrijeme4 - vrijeme3) / (CLOCKS_PER_SEC / time);
+  cout << "Vrijeme pristupa (nizMapa): " << vrijemeNizMape << "ms.\n";
+  // pristup elementima binarnog stabla je mnogo brze nego pristup elementima
+  // niz mape
+
+  vrijeme1 = clock();
+  binStabloMapa[50000] = 1234;
+  vrijeme2 = clock();
+  vrijeme3 = clock();
+  nizMapa[50000] = 1234;
+  vrijeme4 = clock();
+  vrijemeBinStablaMape = (vrijeme2 - vrijeme1) / (CLOCKS_PER_SEC / time);
+  cout << "Vrijeme dodavanja novog elementa (binStabloMapa): "
+       << vrijemeBinStablaMape << "ms.\n";
+  vrijemeNizMape = (vrijeme4 - vrijeme3) / (CLOCKS_PER_SEC / time);
+  cout << "Vrijeme dodavanja novog elementa (nizMapa): " << vrijemeNizMape
+       << "ms.\n";
+  return 0;
+}
