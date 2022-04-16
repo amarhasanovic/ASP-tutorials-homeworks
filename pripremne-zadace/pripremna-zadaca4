@@ -1,0 +1,154 @@
+#include <iostream>
+#include <stdexcept>
+using namespace std;
+
+template <typename Tip> class Red {
+  struct Cvor {
+    Tip element;
+    Cvor *sljedeci;
+    Cvor(const Tip &element, Cvor *sljedeci)
+        : element(element), sljedeci(sljedeci) {}
+  };
+  Cvor *pocetak;
+  Cvor *kraj;
+  int velicina;
+  void OslobodiMemoriju();
+  void Kopiraj(const Red &q);
+
+public:
+  Red() : pocetak(nullptr), kraj(nullptr), velicina(0) {}
+  Red(const Red &q) : velicina(0) { Kopiraj(q); }
+  Red(Red &&q) : velicina(q.velicina), pocetak(q.pocetak), kraj(q.kraj) {
+    q.velicina = 0;
+    q.pocetak = nullptr;
+    q.kraj = nullptr;
+  }
+  ~Red() { OslobodiMemoriju(); }
+  Red &operator=(const Red &q);
+  Red &operator=(Red &&q);
+  void brisi() { OslobodiMemoriju(); }
+  void stavi(const Tip &element);
+  Tip skini();
+  Tip &celo() const {
+    if (velicina == 0)
+      throw std::domain_error("Red prazan");
+    return pocetak->element;
+  }
+  int brojElemenata() { return velicina; }
+  bool JeLiPrazan() const { return pocetak == nullptr; }
+};
+
+template <typename Tip> void Red<Tip>::Kopiraj(const Red &q) {
+  Cvor *p = q.pocetak;
+  pocetak = nullptr;
+  while (p != nullptr) {
+    stavi(p->element);
+    p = p->sljedeci;
+  }
+}
+
+template <typename Tip> Red<Tip> &Red<Tip>::operator=(const Red<Tip> &q) {
+  if (&q != this) {
+    OslobodiMemoriju();
+    Kopiraj(q);
+  }
+  return *this;
+}
+
+template <typename Tip> Red<Tip> &Red<Tip>::operator=(Red<Tip> &&q) {
+  if (q != this) {
+    OslobodiMemoriju();
+    Kopiraj(q);
+  }
+  return *this;
+}
+
+template <typename Tip> void Red<Tip>::OslobodiMemoriju() {
+  while (!JeLiPrazan())
+    skini();
+  velicina = 0;
+}
+
+template <typename Tip> void Red<Tip>::stavi(const Tip &element) {
+  Cvor *temp = new Cvor(element, nullptr);
+  if (pocetak == nullptr)
+    pocetak = kraj = temp;
+  else {
+    kraj->sljedeci = temp;
+    kraj = kraj->sljedeci;
+  }
+  velicina++;
+}
+
+template <typename Tip> Tip Red<Tip>::skini() {
+  if (JeLiPrazan())
+    throw std::domain_error("Prazan red");
+  Tip el(pocetak->element);
+  Cvor *temp = pocetak;
+  if (pocetak == kraj)
+    pocetak = kraj = nullptr;
+  else
+    pocetak = pocetak->sljedeci;
+  delete temp;
+  velicina--;
+  return el;
+}
+
+// Test funkcije
+void TestKonstruktoraRed() {
+  Red<int> red;
+  if (!red.brojElemenata())
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+}
+
+void TestStavi() {
+  Red<int> *r = new Red<int>();
+  for (int i(1); i <= 5; i++)
+    r->stavi(i);
+  if (r->celo() == 1)
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+  delete r;
+}
+
+void TestBrojElemenata() {
+  Red<int> *r = new Red<int>();
+  for (int i(1); i <= 5; i++)
+    r->stavi(i);
+  if (r->brojElemenata() == 5)
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+  delete r;
+}
+
+void TestBrisi() {
+  Red<int> *r = new Red<int>();
+  for (int i(1); i <= 5; i++)
+    r->stavi(i);
+  r->brisi();
+  if (r->brojElemenata() == 0)
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+  delete r;
+}
+
+void TestSkini() {
+  Red<int> *r = new Red<int>();
+  for (int i(1); i <= 5; i++)
+    r->stavi(i);
+  if (r->skini() == 1)
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+  delete r;
+}
+
+int main() {
+  TestSkini();
+  return 0;
+}
