@@ -1,0 +1,103 @@
+#include <algorithm>
+#include <iostream>
+#include <stdexcept>
+#include <vector>
+using namespace std;
+
+int max(vector<int> a) {
+  int mx = a.at(0);
+  for (int x : a) {
+    if (x > mx)
+      mx = x;
+  }
+  return mx;
+}
+
+void countSort(vector<int> &a, int exp) {
+  vector<int> output(a.size());
+  int i, count[10] = {0};
+
+  for (i = 0; i < a.size(); i++)
+    count[(a.at(i) / exp) % 10]++;
+
+  for (i = 1; i < 10; i++)
+    count[i] += count[i - 1];
+
+  for (i = a.size() - 1; i >= 0; i--) {
+    output[count[(a.at(i) / exp) % 10] - 1] = a.at(i);
+    count[(a.at(i) / exp) % 10]--;
+  }
+
+  for (i = 0; i < a.size(); i++)
+    a.at(i) = output.at(i);
+}
+
+void radixSort(vector<int> &a) {
+  int m = max(a);
+  for (int exp = 1; m / exp > 0; exp *= 10)
+    countSort(a, exp);
+}
+
+void zamijeni(int &a, int &b) {
+  int temp = a;
+  a = b;
+  b = temp;
+}
+
+bool jeLiList(int velicina, int i) {
+  return (i >= velicina / 2 && i < velicina);
+}
+
+void popraviDolje(vector<int> &a, int velicina, int i) {
+  while (!jeLiList(velicina, i)) {
+    int veci = 2 * i + 1;
+    int dd = 2 * i + 2;
+    if (dd < velicina && a.at(dd) > a.at(veci)) {
+      veci = dd;
+    }
+    if (a.at(i) > a.at(veci))
+      return;
+    zamijeni(a.at(i), a.at(veci));
+    i = veci;
+  }
+}
+
+void popraviGore(vector<int> &a, int i) {
+  while (i != 0 && a[i] > a[(i - 1) / 2]) {
+    zamijeni(a[i], a[(i - 1) / 2]);
+    i = (i - 1) / 2; // roditelj = (i-1)/2
+  }
+}
+
+void stvoriGomilu(vector<int> &a) {
+  for (int i = (a.size() - 1) / 2; i >= 0;
+       i--) // ako ne bude radilo (a.size()-1)/2
+    popraviDolje(a, a.size(), i);
+}
+
+void umetniUGomilu(vector<int> &a, int umetnuti, int &velicina) {
+  a.push_back(umetnuti);
+  velicina++;
+  popraviGore(a, velicina - 1);
+}
+
+int izbaciPrvi(vector<int> &a, int &velicina) {
+  if (velicina == 0) {
+    throw domain_error("Gomila prazna");
+  }
+  velicina = velicina - 1;
+  zamijeni(a[0], a[velicina]);
+  if (velicina != 0)
+    popraviDolje(a, velicina, 0);
+
+  return a[velicina];
+}
+
+void gomilaSort(vector<int> &a) {
+  stvoriGomilu(a);
+  int velicina = a.size();
+  for (int i = 0; i < a.size() - 1; i++)
+    izbaciPrvi(a, velicina);
+}
+
+int main() { return 0; }
