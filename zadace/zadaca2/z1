@@ -1,0 +1,412 @@
+#include <cmath>
+#include <iostream>
+using namespace std;
+
+template <typename Tip> class Lista {
+public:
+  Lista() {}
+  virtual ~Lista() {}
+  virtual int brojElemenata() const = 0;
+  virtual const Tip trenutni() const = 0;
+  virtual Tip &trenutni() = 0;
+  virtual bool prethodni() = 0;
+  virtual bool sljedeci() = 0;
+  virtual void pocetak() = 0;
+  virtual void kraj() = 0;
+  virtual void obrisi() = 0;
+  virtual void dodajIspred(const Tip &el) = 0;
+  virtual void dodajIza(const Tip &el) = 0;
+  virtual Tip &operator[](int indeks) = 0;
+  virtual Tip operator[](int indeks) const = 0;
+};
+
+template <typename Tip> class Iterator;
+template <typename Tip> class DvostrukaLista : public Lista<Tip> {
+  friend class Iterator<Tip>;
+  struct Cvor {
+    Tip element;
+    Cvor *prethodni, *sljedeci;
+    Cvor(const Tip &element, Cvor *prethodni, Cvor *sljedeci = nullptr)
+        : element(element), prethodni(prethodni), sljedeci(sljedeci) {
+      if (Cvor::prethodni != nullptr)
+        Cvor::prethodni->sljedeci = this;
+      if (Cvor::sljedeci != nullptr)
+        Cvor::sljedeci->prethodni = this;
+    }
+    Cvor(Cvor *prethodni = nullptr, Cvor *sljedeci = nullptr)
+        : prethodni(prethodni), sljedeci(sljedeci) {
+      if (Cvor::prethodni != nullptr)
+        Cvor::prethodni->sljedeci = this;
+      if (Cvor::sljedeci != nullptr)
+        Cvor::sljedeci->prethodni = this;
+    }
+  };
+  Cvor *pocetni_cvor, *krajnji_cvor, *trenutni_element;
+  int duzina, trenutna_pozicija;
+  void OslobodiMemoriju() {
+    auto temp = pocetni_cvor;
+    while (temp != nullptr) {
+      trenutni_element = temp;
+      temp = temp->sljedeci;
+      delete trenutni_element;
+    }
+  }
+  void Kopiranje(const DvostrukaLista<Tip> &l) {
+    trenutni_element = pocetni_cvor = new Cvor(nullptr, nullptr);
+    pocetni_cvor->sljedeci = krajnji_cvor = new Cvor(pocetni_cvor, nullptr);
+    Cvor *temp = l.pocetni_cvor->sljedeci;
+    Cvor *tekuci_temp;
+    do {
+      new Cvor(temp->element, trenutni_element, trenutni_element->sljedeci);
+      if (temp->element == l.trenutni())
+        tekuci_temp = trenutni_element->sljedeci;
+      temp = temp->sljedeci;
+    } while (temp != l.krajnji_cvor);
+    trenutni_element = tekuci_temp;
+  }
+
+public:
+  DvostrukaLista() : duzina(0), trenutna_pozicija(0) {
+    trenutni_element = pocetni_cvor = new Cvor(nullptr, nullptr);
+    pocetni_cvor->sljedeci = krajnji_cvor = new Cvor(pocetni_cvor, nullptr);
+  }
+  DvostrukaLista(const DvostrukaLista<Tip> &l)
+      : duzina(l.duzina), trenutna_pozicija(l.trenutna_pozicija) {
+    Kopiranje(l);
+  }
+  DvostrukaLista(DvostrukaLista<Tip> &&l)
+      : pocetni_cvor(l.pocetni_cvor), krajnji_cvor(l.krajnji_cvor),
+        trenutni_element(l.trenutni_element), duzina(l.duzina),
+        trenutna_pozicija(l.trenutna_pozicija) {
+    l.pocetni_cvor = nullptr;
+    l.krajnji_cvor = nullptr;
+    l.trenutni_element = nullptr;
+    l.duzina = 0;
+    l.trenutna_pozicija = 0;
+  }
+  ~DvostrukaLista() { OslobodiMemoriju(); }
+  DvostrukaLista &operator=(const DvostrukaLista<Tip> &l);
+  DvostrukaLista &operator=(DvostrukaLista<Tip> &&l);
+  int brojElemenata() const override { return duzina; }
+  const Tip trenutni() const override;
+  Tip &trenutni() override;
+  bool prethodni() override;
+  bool sljedeci() override;
+  void pocetak() override {
+    trenutni_element = pocetni_cvor;
+    trenutna_pozicija = 0;
+  }
+  void kraj() override {
+    if (duzina > 1)
+      trenutni_element = krajnji_cvor->prethodni->prethodni;
+    trenutna_pozicija = duzina - 1;
+  }
+  void obrisi() override;
+  void dodajIspred(const Tip &el) override;
+  void dodajIza(const Tip &el) override;
+  Tip &operator[](int indeks) override;
+  Tip operator[](int indeks) const override;
+};
+
+template <typename Tip>
+DvostrukaLista<Tip> &
+DvostrukaLista<Tip>::operator=(const DvostrukaLista<Tip> &l) {
+  if (&l != this) {
+    OslobodiMemoriju();
+    Kopiranje(l);
+    duzina = l.duzina;
+    trenutna_pozicija = l.trenutna_pozicija;
+  }
+  return *this;
+}
+template <typename Tip>
+DvostrukaLista<Tip> &DvostrukaLista<Tip>::operator=(DvostrukaLista &&l) {
+  if (l != this) {
+    OslobodiMemoriju();
+    pocetni_cvor = l.pocetni_cvor;
+    krajnji_cvor = l.krajnji_cvor;
+    trenutni_element = l.trenutni_element;
+    duzina = l.duzina;
+    trenutna_pozicija = l.trenutna_pozicija;
+  }
+  return *this;
+}
+
+template <typename Tip> const Tip DvostrukaLista<Tip>::trenutni() const {
+  if (duzina == 0)
+    throw std::domain_error("Nista za vratiti!");
+  return trenutni_element->sljedeci->element;
+}
+
+template <typename Tip> Tip &DvostrukaLista<Tip>::trenutni() {
+  if (duzina == 0)
+    throw std::domain_error("Nista za vratiti!");
+  return trenutni_element->sljedeci->element;
+}
+
+template <typename Tip> bool DvostrukaLista<Tip>::prethodni() {
+  if (trenutni_element != pocetni_cvor) {
+    trenutni_element = trenutni_element->prethodni;
+    trenutna_pozicija--;
+    return true;
+  }
+  return false;
+}
+
+template <typename Tip> bool DvostrukaLista<Tip>::sljedeci() {
+  if (trenutni_element->sljedeci->sljedeci != krajnji_cvor) {
+    trenutni_element = trenutni_element->sljedeci;
+    trenutna_pozicija++;
+    return true;
+  }
+  return false;
+}
+
+template <typename Tip> void DvostrukaLista<Tip>::obrisi() {
+  if (duzina == 0)
+    throw "Nista za obrisati";
+  Cvor *temp = trenutni_element->sljedeci;
+  temp->sljedeci->prethodni = trenutni_element;
+  trenutni_element->sljedeci = temp->sljedeci;
+  delete temp;
+  if (trenutni_element->sljedeci == krajnji_cvor) {
+    prethodni();
+  }
+  duzina--;
+}
+
+template <typename Tip> void DvostrukaLista<Tip>::dodajIspred(const Tip &el) {
+  new Cvor(el, trenutni_element, trenutni_element->sljedeci);
+  if (duzina != 0) {
+    sljedeci();
+  }
+  duzina++;
+}
+
+template <typename Tip> void DvostrukaLista<Tip>::dodajIza(const Tip &el) {
+  if (!duzina)
+    new Cvor(el, trenutni_element, trenutni_element->sljedeci);
+  else
+    new Cvor(el, trenutni_element->sljedeci,
+             trenutni_element->sljedeci->sljedeci);
+  duzina++;
+}
+
+template <typename Tip> Tip &DvostrukaLista<Tip>::operator[](int indeks) {
+  if (indeks >= duzina)
+    throw "Izuzetak indeks";
+  int dd = duzina - trenutna_pozicija - 1;
+  int ld = trenutna_pozicija;
+  int k(0);
+  Cvor *temp = trenutni_element->sljedeci;
+  if (indeks <= std::abs(indeks - ld) && indeks <= (ld + dd) / 2) {
+    k = indeks;
+    temp = pocetni_cvor->sljedeci;
+  } else if (std::abs(indeks - ld) < ld + dd - indeks)
+    k = indeks - ld;
+  else {
+    k = indeks - ld - dd;
+    temp = krajnji_cvor->prethodni;
+  }
+  if (k < 0)
+    for (int i = 0; i < std::abs(k); i++)
+      temp = temp->prethodni;
+  else {
+    for (int i = 0; i < k; i++)
+      temp = temp->sljedeci;
+  }
+  return temp->element;
+}
+
+template <typename Tip> Tip DvostrukaLista<Tip>::operator[](int indeks) const {
+  if (indeks >= duzina)
+    throw "Izuzetak indeks";
+  int dd = duzina - trenutna_pozicija - 1;
+  int ld = trenutna_pozicija;
+  int k(0);
+  Cvor *temp = trenutni_element->sljedeci;
+  if (indeks <= std::abs(indeks - ld) && indeks <= (ld + dd) / 2) {
+    k = indeks;
+    temp = pocetni_cvor->sljedeci;
+  } else if (std::abs(indeks - ld) < ld + dd - indeks)
+    k = indeks - ld;
+  else {
+    k = indeks - ld - dd;
+    temp = krajnji_cvor->prethodni;
+  }
+  if (k < 0)
+    for (int i = 0; i < std::abs(k); i++)
+      temp = temp->prethodni;
+  else {
+    for (int i = 0; i < k; i++)
+      temp = temp->sljedeci;
+  }
+  return temp->element;
+}
+
+template <typename Tip> class Iterator {
+  const DvostrukaLista<Tip> *lista;
+  typename DvostrukaLista<Tip>::Cvor *trenutni_element;
+
+public:
+  Iterator(const Lista<Tip> &l) {
+    DvostrukaLista<Tip> &temp = (DvostrukaLista<Tip> &)l;
+    this->lista = &temp;
+    trenutni_element = temp.pocetni_cvor->sljedeci;
+  }
+
+  Iterator(const DvostrukaLista<Tip> &l)
+      : lista(&lista), trenutni_element(lista->pocetni_cvor->sljedeci) {}
+  Tip trenutni() {
+    if (!lista->brojElemenata())
+      throw "Lista prazna";
+    return trenutni_element->element;
+  }
+  const Tip trenutni() const {
+    if (!lista->brojElemenata())
+      throw "Lista prazna";
+    return trenutni_element->element;
+  }
+  bool prethodni() {
+    if (trenutni_element != lista->ocetni_cvor) {
+      trenutni_element = trenutni_element->prethodni;
+      return true;
+    }
+    return false;
+  }
+  bool sljedeci() {
+    if (trenutni_element != lista->krajnji_cvor) {
+      trenutni_element = trenutni_element->sljedeci;
+      return true;
+    }
+    return false;
+  }
+  void pocetak() { lista->pocetak(); }
+  void kraj() { lista->kraj(); }
+};
+
+template <typename Tip> void TestKonstruktoraDvostrukaLista() {
+  DvostrukaLista<Tip> lista;
+  try {
+    lista.trenutni();
+  } catch (...) {
+    std::cout << "OK";
+    return;
+  }
+  std::cout << "NIJE OK";
+}
+
+// Preduslov da ispravno dodaje elemente u bilo kakvom poredku, ne mora ispravno
+// raditi dodajIspred()
+template <typename Tip> void TestBrojElemenata(Lista<Tip> *l) {
+  for (int i(1); i <= 5; i++)
+    l->dodajIspred(i);
+  if (l->brojElemenata() == 5)
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+}
+
+template <typename Tip> void TestTrenutni(Lista<Tip> *l) {
+  for (int i(1); i <= 5; i++)
+    l->dodajIspred(i);
+  for (int i(1); i <= 5; i++)
+    l->dodajIza(i);
+  if (l->trenutni() == 1)
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+}
+
+template <typename Tip> void TestPocetak(Lista<Tip> *l) {
+  for (int i(1); i <= 5; i++)
+    l->dodajIspred(i);
+  l->pocetak();
+  if (l->trenutni() == 2)
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+}
+
+template <typename Tip> void TestKraj(Lista<Tip> *l) {
+  for (int i(1); i <= 5; i++)
+    l->dodajIza(i);
+  l->kraj();
+  if (l->trenutni() == 2)
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK" << l->trenutni();
+}
+
+template <typename Tip> void TestSljedeci(Lista<Tip> *l) {
+  for (int i(1); i <= 5; i++)
+    l->dodajIza(i);
+  if (l->sljedeci() && l->trenutni() == 5)
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+}
+
+template <typename Tip> void TestPrethodni(Lista<Tip> *l) {
+  for (int i(1); i <= 5; i++)
+    l->dodajIspred(i);
+  if (l->prethodni() && l->trenutni() == 5)
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+}
+// Preduslov da rade trenutni, pocetak i sljedeci
+template <typename Tip> void TestDodajIspred(Lista<Tip> *l) {
+  for (int i(1); i <= 5; i++)
+    l->dodajIspred(i);
+  l->pocetak();
+  int niz[5] = {2, 3, 4, 5, 1};
+  for (int i = 0; i < 5; i++) {
+    if (l->trenutni() != niz[i]) {
+      std::cout << "NIJE OK";
+      return;
+    }
+    l->sljedeci();
+  }
+  std::cout << "OK";
+}
+
+template <typename Tip> void TestDodajIza(Lista<Tip> *l) {
+  for (int i(1); i <= 5; i++)
+    l->dodajIza(i);
+  int niz[5] = {1, 5, 4, 3, 2};
+  for (int i = 0; i < 5; i++) {
+    if (l->trenutni() != niz[i]) {
+      std::cout << "NIJE OK";
+      return;
+    }
+    l->sljedeci();
+  }
+  std::cout << "OK";
+}
+
+template <typename Tip> void TestOperatora(Lista<Tip> *l) {
+  for (int i(1); i <= 5; i++)
+    l->dodajIza(i);
+
+  if (l->trenutni() == (*l)[0])
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+}
+
+// Kod funkcija za testove treba biti oprezan kod uzastopnog pozivanja jer neki
+// testovi pune niz/listu a ne brise ih tako da rezultat nece biti relevantan
+
+template <typename Tip> const Tip dajMaksimum(const Lista<Tip> &n) {
+  Iterator<Tip> it(n);
+  Tip max = it.trenutni();
+  int broj_elemenata = n.brojElemenata();
+  for (int i = 0; i < broj_elemenata; i++) {
+    if (max < it.trenutni())
+      max = it.trenutni();
+    it.sljedeci();
+  }
+  return max;
+}
+int main() { return 0; }
