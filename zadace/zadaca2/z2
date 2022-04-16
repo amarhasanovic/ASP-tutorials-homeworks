@@ -1,0 +1,194 @@
+#include <iostream>
+
+template <typename Tip> class DvostraniRed {
+  struct Cvor {
+    Tip element;
+    Cvor *sljedeci, *prethodni;
+    Cvor(const Tip &element, Cvor *sljedeci, Cvor *prethodni)
+        : element(element), sljedeci(sljedeci), prethodni(prethodni) {}
+  };
+  Cvor *pocetak;
+  Cvor *kraj;
+  int velicina;
+  void OslobodiMemoriju();
+  void Kopiraj(const DvostraniRed &q);
+
+public:
+  DvostraniRed() : pocetak(nullptr), kraj(nullptr), velicina(0) {}
+  DvostraniRed(const DvostraniRed &q) : velicina(0) { Kopiraj(q); }
+  DvostraniRed(DvostraniRed &&q)
+      : velicina(q.velicina), pocetak(q.pocetak), kraj(q.kraj) {
+    q.velicina = 0;
+    q.pocetak = nullptr;
+    q.kraj = nullptr;
+  }
+  ~DvostraniRed() { OslobodiMemoriju(); }
+  DvostraniRed &operator=(const DvostraniRed &q);
+  DvostraniRed &operator=(DvostraniRed &&q);
+  int brojElemenata() { return velicina; }
+  bool JeLiPrazan() const { return pocetak == nullptr; }
+
+  void staviNaVrh(const Tip &element);
+  Tip skiniSaVrha();
+  void staviNaCelo(const Tip &element);
+  Tip skiniSaCela();
+
+  Tip &celo() const {
+    if (!velicina)
+      throw std::domain_error("Red je prazan");
+    return pocetak->element;
+  }
+  Tip &vrh() {
+    if (!velicina)
+      throw std::domain_error("Red je prazan!");
+    return kraj->element;
+  }
+  void brisi() { OslobodiMemoriju(); }
+  void ispisi() {
+    auto temp = pocetak;
+    while (temp != nullptr) {
+      std::cout << temp->element << " ";
+      temp = temp->sljedeci;
+    }
+  }
+};
+
+template <typename Tip>
+DvostraniRed<Tip> &DvostraniRed<Tip>::operator=(const DvostraniRed<Tip> &q) {
+  if (&q != this) {
+    OslobodiMemoriju();
+    Kopiraj(q);
+  }
+  return *this;
+}
+
+template <typename Tip>
+DvostraniRed<Tip> &DvostraniRed<Tip>::operator=(DvostraniRed<Tip> &&q) {
+  if (&q != this) {
+    OslobodiMemoriju();
+    pocetak = q.pocetak;
+    kraj = q.kraj;
+    velicina = q.velicina;
+  }
+  return *this;
+}
+
+template <typename Tip> void DvostraniRed<Tip>::Kopiraj(const DvostraniRed &q) {
+  Cvor *p = q.pocetak;
+  pocetak = nullptr;
+  while (p != nullptr) {
+    staviNaVrh(p->element);
+    p = p->sljedeci;
+  }
+}
+
+template <typename Tip> void DvostraniRed<Tip>::OslobodiMemoriju() {
+  while (!JeLiPrazan())
+    skiniSaVrha();
+  velicina = 0;
+}
+
+template <typename Tip> void DvostraniRed<Tip>::staviNaVrh(const Tip &element) {
+  Cvor *temp = new Cvor(element, nullptr, nullptr);
+  if (pocetak == nullptr)
+    pocetak = kraj = temp;
+  else {
+    temp->prethodni = kraj;
+    kraj->sljedeci = temp;
+    kraj = temp;
+  }
+  velicina++;
+}
+
+template <typename Tip> Tip DvostraniRed<Tip>::skiniSaCela() {
+  if (JeLiPrazan())
+    throw std::domain_error("Prazan red");
+  Tip el(pocetak->element);
+  Cvor *temp = pocetak;
+  if (pocetak == kraj)
+    pocetak = kraj = nullptr;
+  else {
+    pocetak = pocetak->sljedeci;
+    pocetak->prethodni = nullptr;
+  }
+  delete temp;
+  velicina--;
+  return el;
+}
+
+template <typename Tip>
+void DvostraniRed<Tip>::staviNaCelo(const Tip &element) {
+  if (velicina == 0) {
+    pocetak = kraj = new Cvor(element, nullptr, nullptr);
+  } else {
+    Cvor *temp = new Cvor(element, pocetak, nullptr);
+    pocetak->prethodni = temp;
+    pocetak = temp;
+  }
+  velicina++;
+}
+
+template <typename Tip> Tip DvostraniRed<Tip>::skiniSaVrha() {
+  if (!velicina)
+    throw "Red je prazan!\n";
+
+  Tip el(kraj->element);
+  Cvor *temp = kraj;
+  kraj = kraj->prethodni;
+  if (velicina == 1)
+    pocetak = kraj = nullptr;
+  else
+    kraj->sljedeci = nullptr;
+  delete temp;
+  temp = nullptr;
+  velicina--;
+  return el;
+}
+
+// Test staviNaVrh()
+void testStaviNaVrh() {
+  DvostraniRed<int> r;
+  for (int i(1); i <= 5; i++)
+    r.staviNaVrh(i);
+  r.ispisi();
+}
+// Test skiniSaVrha()
+void testSkiniSaVrha() {
+  DvostraniRed<int> r;
+  for (int i(1); i <= 5; i++)
+    r.staviNaVrh(i);
+  r.ispisi();
+  std::cout << "Skinuti element: " << r.skiniSaVrha() << "\n";
+}
+// Test staviNaCelo()
+void testStaviNaCelo() {
+  DvostraniRed<int> r;
+  for (int i(1); i <= 5; i++)
+    r.staviNaCelo(i);
+  r.ispisi();
+}
+// Test skiniSaCela()
+void testSkiniSaCela() {
+  DvostraniRed<int> r;
+  for (int i(1); i <= 5; i++)
+    r.staviNaVrh(i);
+  r.ispisi();
+  std::cout << "Skinuti element: " << r.skiniSaCela() << "\n";
+}
+// Test vrh()
+void testVrh() {
+  DvostraniRed<int> r;
+  for (int i(1); i <= 5; i++)
+    r.staviNaVrh(i);
+  r.ispisi();
+  std::cout << "Element na vrhu: " << r.vrh() << "\n";
+}
+// Test celo()
+void testCelo() {
+  DvostraniRed<int> r;
+  for (int i(1); i <= 5; i++)
+    r.staviNaVrh(i);
+  r.ispisi();
+  std::cout << "Element na celu: " << r.celo() << "\n";
+}
+int main() { return 0; }
