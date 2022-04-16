@@ -1,0 +1,163 @@
+#include <iostream>
+#include <locale>
+#include <stdexcept>
+
+using namespace std;
+template <typename Tip> class Stek {
+  struct Cvor {
+    Tip element;
+    Cvor *sljedeci;
+    Cvor(const Tip &element, Cvor *sljedeci)
+        : element(element), sljedeci(sljedeci) {}
+  };
+  Cvor *vrh_steka;
+  int velicina;
+
+  void OslobodiMemoriju() {
+    auto temp = vrh_steka;
+    while (temp != nullptr) {
+      vrh_steka = temp;
+      temp = temp->sljedeci;
+      delete vrh_steka;
+    }
+    vrh_steka = nullptr;
+    velicina = 0;
+  }
+  void Kopiranje(const Stek<Tip> &l) {
+    Cvor *temp1 = l.vrh_steka;
+    vrh_steka = new Cvor(l.vrh_steka->element, nullptr);
+    temp1 = temp1->sljedeci;
+    Cvor *temp2 = vrh_steka;
+    do {
+      temp2->sljedeci = new Cvor(temp1->element, nullptr);
+      temp2 = temp2->sljedeci;
+      temp1 = temp1->sljedeci;
+    } while (temp1 != nullptr);
+  }
+
+public:
+  Stek() : vrh_steka(nullptr), velicina(0) {}
+  ~Stek() { OslobodiMemoriju(); }
+
+  // Kopirajuci konstruktori
+  Stek(const Stek<Tip> &l) : velicina(l.velicina) { Kopiranje(l); }
+  Stek(Stek<Tip> &&l) : velicina(l.velicina), vrh_steka(l.vrh_steka) {
+    l.vrh_steka = nullptr;
+    l.velicina = 0;
+  }
+
+  // Operatori dodjele
+  Stek &operator=(const Stek &l) {
+    if (&l != this) {
+      OslobodiMemoriju();
+      Kopiranje(l);
+      velicina = l.velicina;
+    }
+    return *this;
+  }
+  Stek &operator=(Stek &&l) {
+    if (&l != this) {
+      OslobodiMemoriju();
+      vrh_steka = l.vrh_steka;
+      velicina = l.velicina;
+    }
+    return *this;
+  }
+
+  // Metode
+  void brisi() { OslobodiMemoriju(); }
+  void stavi(const Tip &el);
+  Tip skini();
+  Tip &vrh() {
+    if (!velicina)
+      throw std::domain_error("Stek je prazan!");
+    return vrh_steka->element;
+  }
+  int brojElemenata() { return velicina; }
+
+  void ispisi() {
+    auto temp = vrh_steka;
+    while (temp != nullptr) {
+      std::cout << temp->element << " ";
+      vrh_steka = temp;
+      temp = temp->sljedeci;
+    }
+  }
+};
+
+template <typename Tip> void Stek<Tip>::stavi(const Tip &el) {
+  if (velicina == 0) {
+    vrh_steka = new Cvor(el, nullptr);
+  } else {
+    Cvor *temp = new Cvor(el, vrh_steka);
+    vrh_steka = temp;
+  }
+  velicina++;
+}
+
+template <typename Tip> Tip Stek<Tip>::skini() {
+  if (!velicina)
+    throw std::domain_error("Stek je prazan");
+  Tip element = vrh_steka->element;
+  Cvor *temp = vrh_steka;
+  vrh_steka = vrh_steka->sljedeci;
+  delete temp;
+  velicina--;
+  return element;
+}
+
+// Test funkcije
+void TestKonstruktoraStek() {
+  Stek<int> stek;
+  if (!stek.brojElemenata())
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+}
+
+void TestStavi() {
+  Stek<int> *r = new Stek<int>();
+  for (int i(1); i <= 5; i++)
+    r->stavi(i);
+  if (r->vrh() == 5)
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+  delete r;
+}
+
+void TestBrojElemenata() {
+  Stek<int> *r = new Stek<int>();
+  for (int i(1); i <= 5; i++)
+    r->stavi(i);
+  if (r->brojElemenata() == 5)
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+  delete r;
+}
+
+void TestBrisi() {
+  Stek<int> *r = new Stek<int>();
+  for (int i(1); i <= 5; i++)
+    r->stavi(i);
+  r->brisi();
+  if (r->brojElemenata() == 0)
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+  delete r;
+}
+
+void TestSkini() {
+  Stek<int> *r = new Stek<int>();
+  for (int i(1); i <= 5; i++)
+    r->stavi(i);
+  if (r->skini() == 5)
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+  delete r;
+}
+
+int main() { return 0; }
