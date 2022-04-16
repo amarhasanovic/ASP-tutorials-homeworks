@@ -1,0 +1,144 @@
+#include "jednostrukalista.h"
+#include "nizlista.h"
+#include <iostream>
+#include <vector>
+
+template <typename Tip> void TestKonstruktoraNizLista() {
+  NizLista<Tip> niz;
+  if (!niz.brojElemenata() && !niz.prethodni())
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+}
+template <typename Tip> void TestKonstruktoraJednostrukaLista() {
+  JednostrukaLista<Tip> lista;
+  try {
+    lista.trenutni();
+  } catch (...) {
+    std::cout << "OK";
+    return;
+  }
+  std::cout << "NIJE OK";
+}
+
+// Preduslov da ispravno dodaje elemente u bilo kakvom poredku, ne mora ispravno
+// raditi dodajIspred()
+template <typename Tip> void TestBrojElemenata(Lista<Tip> *l) {
+  for (int i(1); i <= 5; i++)
+    l->dodajIspred(i);
+  if (l->brojElemenata() == 5)
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+}
+
+template <typename Tip> void TestTrenutni(Lista<Tip> *l) {
+  for (int i(1); i <= 5; i++)
+    l->dodajIspred(i);
+  for (int i(1); i <= 5; i++)
+    l->dodajIza(i);
+  if (l->trenutni() == 1)
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+}
+
+template <typename Tip> void TestPocetak(Lista<Tip> *l) {
+  for (int i(1); i <= 5; i++)
+    l->dodajIspred(i);
+  l->pocetak();
+  if (l->trenutni() == 2)
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+}
+
+template <typename Tip> void TestKraj(Lista<Tip> *l) {
+  for (int i(1); i <= 5; i++)
+    l->dodajIza(i);
+  l->kraj();
+  if (l->trenutni() == 2)
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK" << l->trenutni();
+}
+
+template <typename Tip> void TestSljedeci(Lista<Tip> *l) {
+  for (int i(1); i <= 5; i++)
+    l->dodajIza(i);
+  if (l->sljedeci() && l->trenutni() == 5)
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+}
+
+template <typename Tip> void TestPrethodni(Lista<Tip> *l) {
+  for (int i(1); i <= 5; i++)
+    l->dodajIspred(i);
+  if (l->prethodni() && l->trenutni() == 5)
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+}
+// Preduslov da rade trenutni, pocetak i sljedeci
+template <typename Tip> void TestDodajIspred(Lista<Tip> *l) {
+  for (int i(1); i <= 5; i++)
+    l->dodajIspred(i);
+  l->pocetak();
+  int niz[5] = {2, 3, 4, 5, 1};
+  for (int i = 0; i < 5; i++) {
+    if (l->trenutni() != niz[i]) {
+      std::cout << "NIJE OK";
+      return;
+    }
+    l->sljedeci();
+  }
+  std::cout << "OK";
+}
+
+template <typename Tip> void TestDodajIza(Lista<Tip> *l) {
+  for (int i(1); i <= 5; i++)
+    l->dodajIza(i);
+  int niz[5] = {1, 5, 4, 3, 2};
+  for (int i = 0; i < 5; i++) {
+    if (l->trenutni() != niz[i]) {
+      std::cout << "NIJE OK";
+      return;
+    }
+    l->sljedeci();
+  }
+  std::cout << "OK";
+}
+
+template <typename Tip> void TestOperatora(Lista<Tip> *l) {
+  for (int i(1); i <= 5; i++)
+    l->dodajIza(i);
+
+  if (l->trenutni() == (*l)[0])
+    std::cout << "OK";
+  else
+    std::cout << "NIJE OK";
+}
+
+// Kod funkcija za testove treba biti oprezan kod uzastopnog pozivanja jer neki
+// testovi pune niz/listu a ne brise ih tako da rezultat nece biti relevantan
+int fun(std::vector<int> &rez, int broj, int &i) {
+  if (broj == 0) {
+    return 0;
+  }
+  i = i - 1;
+  broj = broj - 1;
+  int s = 1 + fun(rez, broj, i) + fun(rez, broj, i);
+  rez.push_back(s);
+  rez.push_back(i);
+  rez.push_back(broj);
+  return s;
+}
+int main() {
+  std::vector<int> rez;
+  int i = 10;
+  fun(rez, 3, i);
+  for (int x : rez)
+    std::cout << x << " ";
+  return 0;
+}
